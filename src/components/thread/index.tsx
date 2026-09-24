@@ -39,6 +39,7 @@ import {
 } from "../ui/tooltip";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { ContentBlocksPreview } from "./ContentBlocksPreview";
+import { OutputLinks } from "./output-links";
 import {
   useArtifactOpen,
   ArtifactContent,
@@ -442,6 +443,10 @@ export function Thread() {
                         />
                       ),
                     )}
+                  <OutputLinks
+                    outputs={stream.values.outputs}
+                    apiUrl={stream.apiUrl}
+                  />
                   {/* Special rendering case where there are no AI/tool messages, but there is an interrupt.
                     We need to render it outside of the messages list, since there are no messages to render */}
                   {hasNoAIOrToolMessages && !!stream.interrupt && (

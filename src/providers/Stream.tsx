@@ -16,6 +16,7 @@ import {
   type RemoveUIMessage,
 } from "@langchain/langgraph-sdk/react-ui";
 import { useQueryState } from "nuqs";
+import type { OutputRef } from "@/lib/outputs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { LangGraphLogoSVG } from "@/components/icons/langgraph";
@@ -28,7 +29,11 @@ import { resolveApiUrl } from "@/lib/resolve-api-url";
 import { useThreads } from "./Thread";
 import { toast } from "sonner";
 
-export type StateType = { messages: Message[]; ui?: UIMessage[] };
+export type StateType = {
+  messages: Message[];
+  ui?: UIMessage[];
+  outputs?: OutputRef[];
+};
 
 const useTypedStream = useStream<
   StateType,
@@ -97,6 +102,13 @@ const StreamSession = ({
       },
     }),
     threadId: threadId ?? null,
+    // Pre-existing, unrelated to `outputs` rendering below — kept here for
+    // branch history. Its side effect is what `outputs` relies on: with
+    // `fetchStateHistory: true` (not `{limit: false}`), `useStream` refetches
+    // the thread's full, unfiltered state (via `getHistory`, not literally
+    // `GET /threads/{id}/state`) once a run finishes, which is how a
+    // completed Output's `{key, filename}` reaches `stream.values.outputs`
+    // without agent-chat-ui parsing the orchestrator's chat reply.
     fetchStateHistory: true,
     onCustomEvent: (event, options) => {
       if (isUIMessage(event) || isRemoveUIMessage(event)) {

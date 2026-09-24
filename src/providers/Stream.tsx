@@ -17,6 +17,7 @@ import {
 } from "@langchain/langgraph-sdk/react-ui";
 import { useQueryState } from "nuqs";
 import type { OutputRef } from "@/lib/outputs";
+import type { AttachmentRef } from "@/lib/attachments";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { LangGraphLogoSVG } from "@/components/icons/langgraph";
@@ -33,6 +34,7 @@ export type StateType = {
   messages: Message[];
   ui?: UIMessage[];
   outputs?: OutputRef[];
+  attachments?: AttachmentRef[];
 };
 
 const useTypedStream = useStream<
@@ -42,6 +44,7 @@ const useTypedStream = useStream<
       messages?: Message[] | Message | string;
       ui?: (UIMessage | RemoveUIMessage)[] | UIMessage | RemoveUIMessage;
       context?: Record<string, unknown>;
+      attachments?: AttachmentRef[];
     };
     CustomEventType: UIMessage | RemoveUIMessage;
   }

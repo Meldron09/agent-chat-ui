@@ -38,7 +38,8 @@ import {
   TooltipTrigger,
 } from "../ui/tooltip";
 import { useFileUpload } from "@/hooks/use-file-upload";
-import { ContentBlocksPreview } from "./ContentBlocksPreview";
+import { attachmentsForRun } from "@/lib/attachments";
+import { AttachmentsPreview } from "./AttachmentsPreview";
 import { OutputLinks } from "./output-links";
 import {
   useArtifactOpen,
@@ -150,22 +151,24 @@ export function Thread() {
     parseAsBoolean.withDefault(false),
   );
   const [input, setInput] = useState("");
-  const {
-    contentBlocks,
-    setContentBlocks,
-    handleFileUpload,
-    dropRef,
-    removeBlock,
-    resetBlocks: _resetBlocks,
-    dragOver,
-    handlePaste,
-  } = useFileUpload();
   const [firstTokenReceived, setFirstTokenReceived] = useState(false);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
 
   const stream = useStreamContext();
   const messages = stream.messages;
   const isLoading = stream.isLoading;
+
+  const {
+    attachments,
+    setAttachments,
+    handleFileUpload,
+    dropRef,
+    removeAttachment,
+    resetAttachments: _resetAttachments,
+    dragOver,
+    handlePaste,
+    uploading,
+  } = useFileUpload({ apiUrl: stream.apiUrl });
 
   const lastError = useRef<string | undefined>(undefined);
 
@@ -221,17 +224,18 @@ export function Thread() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if ((input.trim().length === 0 && contentBlocks.length === 0) || isLoading)
+    if ((input.trim().length === 0 && attachments.length === 0) || isLoading)
       return;
     setFirstTokenReceived(false);
 
+    const runAttachments = attachmentsForRun(attachments);
     const newHumanMessage: Message = {
       id: uuidv4(),
       type: "human",
-      content: [
-        ...(input.trim().length > 0 ? [{ type: "text", text: input }] : []),
-        ...contentBlocks,
-      ] as Message["content"],
+      // The submit guard above already requires text or an attachment, so an
+      // empty `input` here only happens on an attachment-only send -- a
+      // placeholder keeps the message bubble from rendering blank.
+      content: input.trim() || "(no message — see attached files)",
     };
 
     const toolMessages = ensureToolCallsHaveResponses(stream.messages);
@@ -240,7 +244,11 @@ export function Thread() {
       Object.keys(artifactContext).length > 0 ? artifactContext : undefined;
 
     stream.submit(
-      { messages: [...toolMessages, newHumanMessage], context },
+      {
+        messages: [...toolMessages, newHumanMessage],
+        context,
+        attachments: runAttachments,
+      },
       {
         streamMode: ["values"],
         streamSubgraphs: true,
@@ -258,7 +266,7 @@ export function Thread() {
     );
 
     setInput("");
-    setContentBlocks([]);
+    setAttachments([]);
   };
 
   const handleRegenerate = (
@@ -488,9 +496,9 @@ export function Thread() {
                       onSubmit={handleSubmit}
                       className="mx-auto grid max-w-3xl grid-rows-[1fr_auto] gap-2"
                     >
-                      <ContentBlocksPreview
-                        blocks={contentBlocks}
-                        onRemove={removeBlock}
+                      <AttachmentsPreview
+                        attachments={attachments}
+                        onRemove={removeAttachment}
                       />
                       <textarea
                         value={input}
@@ -535,7 +543,7 @@ export function Thread() {
                         >
                           <Plus className="size-5 text-gray-600" />
                           <span className="text-sm text-gray-600">
-                            Upload PDF or Image
+                            {uploading ? "Uploading..." : "Attach a file"}
                           </span>
                         </Label>
                         <input
@@ -543,7 +551,7 @@ export function Thread() {
                           type="file"
                           onChange={handleFileUpload}
                           multiple
-                          accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+                          accept=".pdf,.xlsx,.xls,.docx,.pptx,.txt,.md"
                           className="hidden"
                         />
                         {stream.isLoading ? (
@@ -561,7 +569,8 @@ export function Thread() {
                             className="ml-auto shadow-md transition-all"
                             disabled={
                               isLoading ||
-                              (!input.trim() && contentBlocks.length === 0)
+                              uploading ||
+                              (!input.trim() && attachments.length === 0)
                             }
                           >
                             Send

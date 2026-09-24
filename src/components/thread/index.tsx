@@ -39,8 +39,10 @@ import {
 } from "../ui/tooltip";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { attachmentsForRun } from "@/lib/attachments";
+import { webSearchConfigForRun } from "@/lib/web-search";
 import { AttachmentsPreview } from "./AttachmentsPreview";
 import { OutputLinks } from "./output-links";
+import { WebSearchToggle } from "./web-search-toggle";
 import {
   useArtifactOpen,
   ArtifactContent,
@@ -150,6 +152,10 @@ export function Thread() {
     "hideToolCalls",
     parseAsBoolean.withDefault(false),
   );
+  const [enableWebSearch, setEnableWebSearch] = useQueryState(
+    "enableWebSearch",
+    parseAsBoolean.withDefault(false),
+  );
   const [input, setInput] = useState("");
   const [firstTokenReceived, setFirstTokenReceived] = useState(false);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
@@ -250,6 +256,7 @@ export function Thread() {
         attachments: runAttachments,
       },
       {
+        config: webSearchConfigForRun(enableWebSearch ?? false),
         streamMode: ["values"],
         streamSubgraphs: true,
         streamResumable: true,
@@ -537,6 +544,10 @@ export function Thread() {
                             </Label>
                           </div>
                         </div>
+                        <WebSearchToggle
+                          checked={enableWebSearch ?? false}
+                          onCheckedChange={setEnableWebSearch}
+                        />
                         <Label
                           htmlFor="file-input"
                           className="flex cursor-pointer items-center gap-2"

@@ -3,8 +3,8 @@
  * `{"error": message}`; we surface the message and never parse further. */
 export interface McpConnection {
   enabled: boolean;
-  login: string;
-  scopes: string[];
+  login?: string;
+  scopes?: string[];
   toolCount: number;
   lastError: string | null;
 }
@@ -65,8 +65,8 @@ export async function disconnectMcp(
 }
 
 export interface ConnectResult {
-  login: string;
-  scopes: string[];
+  login?: string;
+  scopes?: string[];
   toolCount: number;
   enabled: boolean;
 }

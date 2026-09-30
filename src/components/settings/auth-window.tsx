@@ -92,9 +92,11 @@ export function AuthWindow({
             <div className="flex items-start gap-2 text-green-800">
               <Check className="mt-0.5 size-4" />
               <div className="text-sm font-medium">
-                Connected as @{state.result.login}
+                Connected
+                {state.result.login && ` as @${state.result.login}`}
                 <div className="text-xs font-normal">
-                  Scopes: {state.result.scopes.join(", ") || "none"} ·{" "}
+                  {state.result.scopes &&
+                    `Scopes: ${state.result.scopes.join(", ") || "none"} · `}
                   {state.result.toolCount} tools available
                 </div>
               </div>

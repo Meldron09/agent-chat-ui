@@ -47,8 +47,8 @@ function Row({
           {!connection
             ? "Not connected"
             : connection.lastError
-              ? `Connection error (${connection.login})`
-              : `Connected as ${connection.login}`}
+              ? `Connection error${connection.login ? ` (${connection.login})` : ""}`
+              : `Connected${connection.login ? ` as ${connection.login}` : ""}`}
         </div>
         {problem && <div className="text-xs text-red-600">{problem}</div>}
       </div>

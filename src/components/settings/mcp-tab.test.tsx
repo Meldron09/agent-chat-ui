@@ -60,6 +60,19 @@ describe("McpTab list", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders a connection that has no login or scopes", async () => {
+    mockFetch({
+      "GET /mcp/connections": () =>
+        json([entry({ enabled: true, toolCount: 4, lastError: null })]),
+    });
+    render(<McpTab apiUrl={apiUrl} />);
+
+    expect(await screen.findByText("Connected")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Disconnect" }),
+    ).toBeInTheDocument();
+  });
+
   it("shows lastError on the row with a Reconnect action", async () => {
     mockFetch({
       "GET /mcp/connections": () =>

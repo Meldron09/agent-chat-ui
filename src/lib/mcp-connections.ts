@@ -5,6 +5,8 @@ export interface McpConnection {
   enabled: boolean;
   login?: string;
   scopes?: string[];
+  /** Stored non-secret credential fields, to pre-fill the form; secrets are never returned. */
+  values?: Record<string, string>;
   toolCount: number;
   lastError: string | null;
 }

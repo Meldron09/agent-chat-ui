@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { GitHubSVG } from "../icons/github";
+import { N8nSVG } from "../icons/n8n";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
 import { AuthWindow } from "./auth-window";
@@ -14,11 +15,16 @@ import {
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+const LOGOS: Record<string, () => React.ReactNode> = {
+  github: () => <GitHubSVG />,
+  n8n: () => <N8nSVG />,
+};
+
 /** Static logo per curated server, keyed by `server`; unknown slugs get an initial. */
 function Logo({ server }: { server: McpServer }) {
   return (
     <span className="grid size-9 shrink-0 place-items-center rounded-md border bg-white p-1.5 text-xs font-semibold">
-      {server.server === "github" ? <GitHubSVG /> : server.title[0]}
+      {LOGOS[server.server]?.() ?? server.title[0]}
     </span>
   );
 }

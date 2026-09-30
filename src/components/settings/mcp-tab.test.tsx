@@ -96,6 +96,87 @@ describe("McpTab list", () => {
   });
 });
 
+describe("McpTab n8n", () => {
+  const n8n = (connection: unknown) => ({
+    server: "n8n",
+    title: "n8n",
+    description: "Run workflows.",
+    credentialFields: [
+      {
+        name: "url",
+        description: "Instance MCP URL",
+        isRequired: true,
+        isSecret: false,
+      },
+      {
+        name: "Authorization",
+        description: "Access token",
+        isRequired: true,
+        isSecret: true,
+      },
+    ],
+    connection,
+  });
+  const URL = "https://n8n.example.com/mcp-server/http";
+
+  it("reopens the form with the URL pre-filled and the token blank", async () => {
+    mockFetch({
+      "GET /mcp/connections": () =>
+        json([
+          n8n({
+            enabled: true,
+            toolCount: 5,
+            lastError: "token rejected",
+            values: { url: URL },
+          }),
+        ]),
+    });
+    render(<McpTab apiUrl={apiUrl} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Reconnect" }));
+
+    expect(await screen.findByLabelText("url")).toHaveValue(URL);
+    expect(screen.getByLabelText("Authorization")).toHaveValue("");
+    expect(screen.getByLabelText("Authorization")).toHaveAttribute(
+      "type",
+      "password",
+    );
+  });
+
+  it("shows the n8n logo, GitHub's logo, and a first letter for others", async () => {
+    mockFetch({
+      "GET /mcp/connections": () =>
+        json([
+          n8n(null),
+          entry(null),
+          { ...entry(null), server: "other", title: "Zed" },
+        ]),
+    });
+    render(<McpTab apiUrl={apiUrl} />);
+
+    expect(await screen.findByTitle("n8n")).toBeInTheDocument();
+    expect(screen.getByTitle("GitHub")).toBeInTheDocument();
+    expect(screen.getByText("Z")).toBeInTheDocument();
+  });
+
+  it("shows a connected n8n row without login or scopes", async () => {
+    mockFetch({
+      "GET /mcp/connections": () =>
+        json([
+          n8n({
+            enabled: true,
+            toolCount: 5,
+            lastError: null,
+            values: { url: URL },
+          }),
+        ]),
+    });
+    render(<McpTab apiUrl={apiUrl} />);
+
+    expect(await screen.findByText("Connected")).toBeInTheDocument();
+  });
+});
+
 describe("McpTab enabled switch", () => {
   it("flips optimistically and PATCHes {enabled}", async () => {
     let resolvePatch!: (r: Response) => void;

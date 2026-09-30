@@ -41,7 +41,9 @@ export function AuthWindow({
   onConnected: () => void;
 }) {
   const fields = server.credentialFields;
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>(
+    () => server.connection?.values ?? {},
+  );
   const [state, setState] = useState<State>({ s: "idle" });
   const pending = state.s === "pending";
   const filled = (name: string) => (values[name] ?? "").trim() !== "";

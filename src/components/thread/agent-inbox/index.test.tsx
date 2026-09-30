@@ -84,6 +84,22 @@ describe("ThreadView resume", () => {
     );
   });
 
+  it("falls back to a bare resume once only one interrupt remains pending", () => {
+    const first = interrupt("id-1", "gh_write_thing");
+    const { rerender } = render(
+      <ThreadView interrupt={[first, interrupt("id-2", "gh_delete_thing")]} />,
+    );
+
+    // id-2 resolved server-side; only id-1 is left.
+    rerender(<ThreadView interrupt={[first]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+
+    expect(submit).toHaveBeenCalledWith(
+      {},
+      { command: { resume: { decisions: [{ type: "approve" }] } } },
+    );
+  });
+
   it("keys Approve All and Submit all by interrupt id too", () => {
     const multiAction = interrupt("id-1", "gh_write_thing");
     multiAction.value!.action_requests.push({

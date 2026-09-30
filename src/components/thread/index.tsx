@@ -43,6 +43,7 @@ import { webSearchConfigForRun } from "@/lib/web-search";
 import { AttachmentsPreview } from "./AttachmentsPreview";
 import { OutputLinks } from "./output-links";
 import { WebSearchToggle } from "./web-search-toggle";
+import { SettingsButton } from "../settings/settings-dialog";
 import {
   useArtifactOpen,
   ArtifactContent,
@@ -365,7 +366,8 @@ export function Thread() {
                   </Button>
                 )}
               </div>
-              <div className="absolute top-2 right-4 flex items-center">
+              <div className="absolute top-2 right-4 flex items-center gap-3">
+                <SettingsButton apiUrl={stream.apiUrl} />
                 <OpenGitHubRepo />
               </div>
             </div>
@@ -412,6 +414,7 @@ export function Thread() {
               </div>
 
               <div className="flex items-center gap-4">
+                <SettingsButton apiUrl={stream.apiUrl} />
                 <div className="flex items-center">
                   <OpenGitHubRepo />
                 </div>

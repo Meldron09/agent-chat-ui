@@ -43,7 +43,11 @@ function Row({
       <div className="min-w-0 flex-1">
         <div className="font-medium">{server.title}</div>
         <div className="text-muted-foreground text-xs">
-          {connection ? `Connected as ${connection.login}` : "Not connected"}
+          {!connection
+            ? "Not connected"
+            : connection.lastError
+              ? `Connection error (${connection.login})`
+              : `Connected as ${connection.login}`}
         </div>
         {problem && <div className="text-xs text-red-600">{problem}</div>}
       </div>

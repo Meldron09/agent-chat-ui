@@ -2,6 +2,9 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { McpTab } from "./mcp-tab";
 
+const openAuth = vi.fn();
+vi.mock("@/hooks/use-mcp-auth", () => ({ useMcpAuth: () => openAuth }));
+
 const apiUrl = "http://localhost:2024";
 
 const entry = (connection: unknown) => ({

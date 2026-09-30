@@ -54,7 +54,9 @@ function Row({
             ? "Not connected"
             : connection.lastError
               ? `Connection error${connection.login ? ` (${connection.login})` : ""}`
-              : `Connected${connection.login ? ` as ${connection.login}` : ""}`}
+              : connection.login
+                ? `Connected as ${connection.login}`
+                : `Connected · ${connection.toolCount} tools`}
         </div>
         {problem && <div className="text-xs text-red-600">{problem}</div>}
       </div>
@@ -65,7 +67,8 @@ function Row({
           onCheckedChange={onToggle}
         />
       )}
-      {connection?.lastError && (
+      {/* Servers with stored non-secret fields (n8n's URL) can reopen the form to rotate the token. */}
+      {(connection?.lastError || connection?.values) && (
         <Button
           size="sm"
           variant="brand"

@@ -67,7 +67,7 @@ describe("McpTab list", () => {
     });
     render(<McpTab apiUrl={apiUrl} />);
 
-    expect(await screen.findByText("Connected")).toBeInTheDocument();
+    expect(await screen.findByText("Connected · 4 tools")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Disconnect" }),
     ).toBeInTheDocument();
@@ -117,7 +117,7 @@ describe("McpTab n8n", () => {
     ],
     connection,
   });
-  const URL = "https://n8n.example.com/mcp-server/http";
+  const N8N_URL = "https://n8n.example.com/mcp-server/http";
 
   it("reopens the form with the URL pre-filled and the token blank", async () => {
     mockFetch({
@@ -126,8 +126,8 @@ describe("McpTab n8n", () => {
           n8n({
             enabled: true,
             toolCount: 5,
-            lastError: "token rejected",
-            values: { url: URL },
+            lastError: null,
+            values: { url: N8N_URL },
           }),
         ]),
     });
@@ -135,7 +135,7 @@ describe("McpTab n8n", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Reconnect" }));
 
-    expect(await screen.findByLabelText("url")).toHaveValue(URL);
+    expect(await screen.findByLabelText("url")).toHaveValue(N8N_URL);
     expect(screen.getByLabelText("Authorization")).toHaveValue("");
     expect(screen.getByLabelText("Authorization")).toHaveAttribute(
       "type",
@@ -167,13 +167,13 @@ describe("McpTab n8n", () => {
             enabled: true,
             toolCount: 5,
             lastError: null,
-            values: { url: URL },
+            values: { url: N8N_URL },
           }),
         ]),
     });
     render(<McpTab apiUrl={apiUrl} />);
 
-    expect(await screen.findByText("Connected")).toBeInTheDocument();
+    expect(await screen.findByText("Connected · 5 tools")).toBeInTheDocument();
   });
 });
 

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { GitHubSVG } from "../icons/github";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
-import { useMcpAuth } from "@/hooks/use-mcp-auth";
+import { AuthWindow } from "./auth-window";
 import {
   disconnectMcp,
   listMcpServers,
@@ -27,14 +27,15 @@ function Row({
   server,
   error,
   onToggle,
+  onConnect,
   onDisconnect,
 }: {
   server: McpServer;
   error?: string;
   onToggle: (enabled: boolean) => void;
+  onConnect: () => void;
   onDisconnect: () => void;
 }) {
-  const openAuth = useMcpAuth();
   const { connection } = server;
   const problem = connection?.lastError ?? error;
   return (
@@ -62,7 +63,7 @@ function Row({
         <Button
           size="sm"
           variant="brand"
-          onClick={() => openAuth(server.server)}
+          onClick={onConnect}
         >
           Reconnect
         </Button>
@@ -79,7 +80,7 @@ function Row({
         <Button
           size="sm"
           variant="brand"
-          onClick={() => openAuth(server.server)}
+          onClick={onConnect}
         >
           Connect
         </Button>
@@ -93,15 +94,26 @@ export function McpTab({ apiUrl }: { apiUrl: string }) {
   const [loadError, setLoadError] = useState<string>();
   // Action failures (toggle rollback, disconnect) shown on the row they came from.
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  const [authFor, setAuthFor] = useState<string>();
 
+  const load = useCallback(
+    () =>
+      listMcpServers(apiUrl).then(setServers, (e) => setLoadError(message(e))),
+    [apiUrl],
+  );
   useEffect(() => {
-    listMcpServers(apiUrl).then(setServers, (e) => setLoadError(message(e)));
-  }, [apiUrl]);
-
+    load();
+  }, [load]);
   const update = (slug: string, fn: (s: McpServer) => McpServer) =>
     setServers((all) => all && all.map((s) => (s.server === slug ? fn(s) : s)));
   const setRowError = (slug: string, error?: string) =>
     setRowErrors((all) => ({ ...all, [slug]: error ?? "" }));
+  // A failed refresh must not replace the tab (and unmount the open auth window).
+  const refresh = (slug: string) =>
+    listMcpServers(apiUrl).then(setServers, (e) =>
+      setRowError(slug, message(e)),
+    );
+
   const withEnabled = (enabled: boolean) => (s: McpServer) =>
     s.connection ? { ...s, connection: { ...s.connection, enabled } } : s;
 
@@ -129,17 +141,29 @@ export function McpTab({ apiUrl }: { apiUrl: string }) {
   if (loadError) return <p className="text-sm text-red-600">{loadError}</p>;
   if (!servers)
     return <p className="text-muted-foreground text-sm">Loading…</p>;
+  const authServer = servers.find((s) => s.server === authFor);
   return (
-    <ul className="divide-y rounded-lg border">
-      {servers.map((s) => (
-        <Row
-          key={s.server}
-          server={s}
-          error={rowErrors[s.server]}
-          onToggle={(enabled) => toggle(s.server, enabled)}
-          onDisconnect={() => disconnect(s.server)}
+    <>
+      <ul className="divide-y rounded-lg border">
+        {servers.map((s) => (
+          <Row
+            key={s.server}
+            server={s}
+            error={rowErrors[s.server]}
+            onToggle={(enabled) => toggle(s.server, enabled)}
+            onConnect={() => setAuthFor(s.server)}
+            onDisconnect={() => disconnect(s.server)}
+          />
+        ))}
+      </ul>
+      {authServer && (
+        <AuthWindow
+          apiUrl={apiUrl}
+          server={authServer}
+          onClose={() => setAuthFor(undefined)}
+          onConnected={() => refresh(authServer.server)}
         />
-      ))}
-    </ul>
+      )}
+    </>
   );
 }

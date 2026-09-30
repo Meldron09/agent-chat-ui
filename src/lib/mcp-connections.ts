@@ -9,10 +9,18 @@ export interface McpConnection {
   lastError: string | null;
 }
 
+export interface CredentialField {
+  name: string;
+  description: string;
+  isRequired: boolean;
+  isSecret: boolean;
+}
+
 export interface McpServer {
   server: string;
   title: string;
   description: string;
+  credentialFields: CredentialField[];
   /** `null` means never connected. */
   connection: McpConnection | null;
 }
@@ -54,4 +62,25 @@ export async function disconnectMcp(
   server: string,
 ): Promise<void> {
   await call(apiUrl, `/${server}`, { method: "DELETE" });
+}
+
+export interface ConnectResult {
+  login: string;
+  scopes: string[];
+  toolCount: number;
+  enabled: boolean;
+}
+
+/** Validate-and-save: `credentials` is `{<credentialFields name>: value}`. */
+export async function connectMcp(
+  apiUrl: string,
+  server: string,
+  credentials: Record<string, string>,
+): Promise<ConnectResult> {
+  const res = await call(apiUrl, `/${server}/credentials`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(credentials),
+  });
+  return res.json();
 }

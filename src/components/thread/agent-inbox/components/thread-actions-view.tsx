@@ -7,7 +7,11 @@ import useInterruptedActions from "../hooks/use-interrupted-actions";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useQueryState } from "nuqs";
-import { constructOpenInStudioURL, buildDecisionFromState } from "../utils";
+import {
+  constructOpenInStudioURL,
+  buildDecisionFromState,
+  buildResumeCommand,
+} from "../utils";
 import { Decision, HITLRequest, DecisionType, ActionRequest } from "../types";
 import { useStreamContext } from "@/providers/Stream";
 
@@ -16,6 +20,8 @@ interface ThreadActionsViewProps {
   handleShowSidePanel: (showState: boolean, showDescription: boolean) => void;
   showState: boolean;
   showDescription: boolean;
+  /** True when several interrupts are pending, so resume must name one. */
+  resumeById?: boolean;
 }
 
 function ButtonGroup({
@@ -85,6 +91,7 @@ export function ThreadActionsView({
   handleShowSidePanel,
   showDescription,
   showState,
+  resumeById = false,
 }: ThreadActionsViewProps) {
   const stream = useStreamContext();
   const [threadId] = useQueryState("threadId");
@@ -145,6 +152,7 @@ export function ThreadActionsView({
     initialHumanInterruptEditValue,
   } = useInterruptedActions({
     interrupt: singleActionInterrupt,
+    resumeById,
   });
 
   useEffect(() => {
@@ -177,11 +185,7 @@ export function ThreadActionsView({
 
       stream.submit(
         {},
-        {
-          command: {
-            resume: { decisions: allDecisions },
-          },
-        },
+        { command: buildResumeCommand(allDecisions, interrupt.id, resumeById) },
       );
 
       toast("Success", {
@@ -197,7 +201,7 @@ export function ThreadActionsView({
         duration: 5000,
       });
     }
-  }, [actionRequests, hasMultipleActions, stream]);
+  }, [actionRequests, hasMultipleActions, interrupt.id, resumeById, stream]);
 
   const handleSubmitAll = useCallback(() => {
     if (!hasMultipleActions) return;
@@ -224,11 +228,7 @@ export function ThreadActionsView({
 
       stream.submit(
         {},
-        {
-          command: {
-            resume: { decisions: allDecisions },
-          },
-        },
+        { command: buildResumeCommand(allDecisions, interrupt.id, resumeById) },
       );
 
       toast("Success", {
@@ -247,7 +247,14 @@ export function ThreadActionsView({
     } finally {
       setSubmittingAll(false);
     }
-  }, [actionRequests, addressedActions, hasMultipleActions, stream]);
+  }, [
+    actionRequests,
+    addressedActions,
+    hasMultipleActions,
+    interrupt.id,
+    resumeById,
+    stream,
+  ]);
 
   const allAllowApprove = useMemo(() => {
     if (!hasMultipleActions) return false;

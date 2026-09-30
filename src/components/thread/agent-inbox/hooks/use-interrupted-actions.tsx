@@ -12,10 +12,15 @@ import {
   useState,
 } from "react";
 import { Decision, DecisionWithEdits, HITLRequest, SubmitType } from "../types";
-import { buildDecisionFromState, createDefaultHumanResponse } from "../utils";
+import {
+  buildDecisionFromState,
+  buildResumeCommand,
+  createDefaultHumanResponse,
+} from "../utils";
 
 interface UseInterruptedActionsInput {
   interrupt: Interrupt<HITLRequest>;
+  resumeById?: boolean;
 }
 
 interface UseInterruptedActionsValue {
@@ -43,6 +48,7 @@ interface UseInterruptedActionsValue {
 
 export default function useInterruptedActions({
   interrupt,
+  resumeById = false,
 }: UseInterruptedActionsInput): UseInterruptedActionsValue {
   const thread = useStreamContext();
   const [humanResponse, setHumanResponse] = useState<DecisionWithEdits[]>([]);
@@ -88,13 +94,7 @@ export default function useInterruptedActions({
     try {
       thread.submit(
         {},
-        {
-          command: {
-            resume: {
-              decisions,
-            },
-          },
-        },
+        { command: buildResumeCommand(decisions, interrupt.id, resumeById) },
       );
       return true;
     } catch (error) {

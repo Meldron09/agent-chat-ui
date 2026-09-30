@@ -92,7 +92,9 @@ export function ThreadView({ interrupt }: ThreadViewProps) {
             </div>
           )}
           <ThreadActionsView
+            key={activeInterrupt.id ?? activeInterruptIndex}
             interrupt={activeInterrupt}
+            resumeById={interrupts.length > 1}
             handleShowSidePanel={handleShowSidePanel}
             showState={showState}
             showDescription={showDescription}

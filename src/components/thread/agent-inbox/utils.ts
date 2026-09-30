@@ -236,3 +236,18 @@ export function haveArgsChanged(
     return initialValues[key] !== valueString;
   });
 }
+
+/**
+ * LangGraph rejects a bare resume value while several interrupts are pending
+ * ("must specify the interrupt id"), so key it by id in that case only.
+ */
+export function buildResumeCommand(
+  decisions: Decision[],
+  interruptId: string | undefined,
+  resumeById: boolean,
+) {
+  const value = { decisions };
+  return {
+    resume: resumeById && interruptId ? { [interruptId]: value } : value,
+  };
+}

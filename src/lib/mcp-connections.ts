@@ -27,7 +27,7 @@ export interface McpServer {
   connection: McpConnection | null;
 }
 
-async function failure(res: Response): Promise<Error> {
+export async function failure(res: Response): Promise<Error> {
   try {
     const { error } = (await res.json()) as { error?: string };
     if (error) return new Error(error);

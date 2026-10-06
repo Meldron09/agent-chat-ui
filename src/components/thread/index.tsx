@@ -44,6 +44,7 @@ import { AttachmentsPreview } from "./AttachmentsPreview";
 import { OutputLinks } from "./output-links";
 import { WebSearchToggle } from "./web-search-toggle";
 import { SettingsButton } from "../settings/settings-dialog";
+import { SkillsLink } from "../skills/skills-link";
 import {
   useArtifactOpen,
   ArtifactContent,
@@ -367,6 +368,7 @@ export function Thread() {
                 )}
               </div>
               <div className="absolute top-2 right-4 flex items-center gap-3">
+                <SkillsLink apiUrl={stream.apiUrl} />
                 <SettingsButton apiUrl={stream.apiUrl} />
                 <OpenGitHubRepo />
               </div>
@@ -414,6 +416,7 @@ export function Thread() {
               </div>
 
               <div className="flex items-center gap-4">
+                <SkillsLink apiUrl={stream.apiUrl} />
                 <SettingsButton apiUrl={stream.apiUrl} />
                 <div className="flex items-center">
                   <OpenGitHubRepo />

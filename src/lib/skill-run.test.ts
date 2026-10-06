@@ -128,3 +128,16 @@ describe("skillRunStatus", () => {
     ).toBe("idle");
   });
 });
+
+describe("skillRunStatus while paused for an approval", () => {
+  it("is running, not done, though the stream has ended", () => {
+    expect(
+      skillRunStatus({
+        isLoading: false,
+        started: true,
+        finished: true,
+        interrupted: true,
+      }),
+    ).toBe("running");
+  });
+});

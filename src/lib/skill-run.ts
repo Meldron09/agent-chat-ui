@@ -55,12 +55,7 @@ export function skillRunInput({
 }
 
 export type SkillRunStatus =
-  | "idle"
-  | "queued"
-  | "running"
-  | "done"
-  | "failed"
-  | "cancelled";
+  "idle" | "queued" | "running" | "done" | "failed" | "cancelled";
 
 /** The status the server reports for a Run through a custom stream event
  * (`{skill_run_status: "queued" | "running"}`, deepagent-aegra agent/skill_run.py):
@@ -71,7 +66,8 @@ export const queuedFromEvent = (event: unknown): boolean | undefined => {
   return status === "queued" ? true : status === "running" ? false : undefined;
 };
 
-/** `finished` comes from the stream's `onFinish`, not from `!isLoading`: right
+/** A Run waiting on an approval has ended its stream (so `finished`), but it is not done:
+ * it is `interrupted` until the person decides, and then it resumes. `finished` comes from the stream's `onFinish`, not from `!isLoading`: right
  * after submit, `isLoading` is still false for a moment, which would read as done. */
 export function skillRunStatus({
   isLoading,
@@ -80,6 +76,7 @@ export function skillRunStatus({
   finished,
   queued = false,
   cancelled = false,
+  interrupted = false,
 }: {
   isLoading: boolean;
   error?: unknown;
@@ -87,10 +84,12 @@ export function skillRunStatus({
   finished: boolean;
   queued?: boolean;
   cancelled?: boolean;
+  interrupted?: boolean;
 }): SkillRunStatus {
   if (cancelled) return "cancelled"; // aborting the stream may surface as an error
   if (error) return "failed";
   if (!started) return "idle";
+  if (interrupted) return "running";
   if (queued && !finished) return "queued";
   return isLoading || !finished ? "running" : "done";
 }

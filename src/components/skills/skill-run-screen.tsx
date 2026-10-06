@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+} from "react";
 import { Paperclip, Play, X } from "lucide-react";
 import { useStream } from "@langchain/langgraph-sdk/react";
 import { Client, type Message } from "@langchain/langgraph-sdk";
@@ -9,6 +15,9 @@ import { Textarea } from "../ui/textarea";
 import { AttachmentsPreview } from "../thread/AttachmentsPreview";
 import { OutputLinks } from "../thread/output-links";
 import { WebSearchToggle } from "../thread/web-search-toggle";
+import { ThreadView } from "../thread/agent-inbox";
+import StreamContext from "@/providers/Stream";
+import { isAgentInboxInterruptSchema } from "@/lib/agent-inbox-interrupt";
 import { getContentString } from "../thread/utils";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { toast } from "sonner";
@@ -82,6 +91,24 @@ export function SkillRunScreen({
     fetchStateHistory: true,
   });
 
+  // A Run that needs an approval ends its stream and waits in its checkpoint; the existing
+  // approval view resumes it through a `useStreamContext()` we give it, bound to this Run's thread.
+  const approval =
+    started &&
+    !cancelled &&
+    !stream.isLoading &&
+    isAgentInboxInterruptSchema(stream.interrupt)
+      ? stream.interrupt
+      : undefined;
+  const approvalStream = {
+    ...stream,
+    apiUrl,
+    submit: ((...args: Parameters<typeof stream.submit>) => {
+      setFinished(false); // resumed: not done until it finishes again
+      return stream.submit(...args);
+    }) as typeof stream.submit,
+  } as unknown as ComponentProps<typeof StreamContext.Provider>["value"];
+
   const status = skillRunStatus({
     isLoading: stream.isLoading,
     error: stream.error,
@@ -89,6 +116,7 @@ export function SkillRunScreen({
     finished,
     queued,
     cancelled,
+    interrupted: !!approval,
   });
   const finalMessage = [...stream.messages]
     .reverse()
@@ -234,20 +262,27 @@ export function SkillRunScreen({
             role="status"
             className="text-sm font-medium"
           >
-            {STATUS_LABEL[status]}
+            {approval ? "Waiting for your approval…" : STATUS_LABEL[status]}
           </div>
-          {run && (status === "queued" || status === "running") && (
-            <Button
-              type="button"
-              variant="outline"
-              className="self-start"
-              disabled={cancelling}
-              onClick={cancel}
-            >
-              <X className="size-4" />
-              Cancel
-            </Button>
+          {approval && (
+            <StreamContext.Provider value={approvalStream}>
+              <ThreadView interrupt={approval} />
+            </StreamContext.Provider>
           )}
+          {run &&
+            !approval &&
+            (status === "queued" || status === "running") && (
+              <Button
+                type="button"
+                variant="outline"
+                className="self-start"
+                disabled={cancelling}
+                onClick={cancel}
+              >
+                <X className="size-4" />
+                Cancel
+              </Button>
+            )}
           {status === "failed" && (
             <div
               role="alert"

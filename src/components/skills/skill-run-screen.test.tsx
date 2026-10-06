@@ -9,7 +9,10 @@ import {
 import { SkillRunScreen } from "./skill-run-screen";
 
 const toastError = vi.hoisted(() => vi.fn());
-vi.mock("sonner", () => ({ toast: { error: toastError } }));
+vi.mock("sonner", () => ({
+  toast: Object.assign(vi.fn(), { error: toastError }),
+}));
+vi.mock("nuqs", () => ({ useQueryState: () => [null, vi.fn()] }));
 
 const stream = vi.hoisted(() => ({
   current: {
@@ -17,6 +20,7 @@ const stream = vi.hoisted(() => ({
     values: {} as Record<string, unknown>,
     isLoading: false,
     error: undefined as unknown,
+    interrupt: undefined as unknown,
     submit: vi.fn(),
     stop: vi.fn(),
   },
@@ -59,6 +63,7 @@ beforeEach(() => {
     values: {},
     isLoading: false,
     error: undefined,
+    interrupt: undefined,
     submit: vi.fn(),
     stop: vi.fn(),
   };
@@ -263,6 +268,119 @@ describe("result panel", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("Failed");
     expect(screen.getByRole("alert")).toHaveTextContent("model unreachable");
+  });
+});
+
+// The `mcp` subagent's approval request for a write (deepagent-aegra tests/test_skill_run_approval.py).
+const approval = {
+  id: "i1",
+  value: {
+    action_requests: [
+      {
+        name: "github_create_issue",
+        args: { title: "x" },
+        description:
+          "Tool execution requires approval\n\nTool: github_create_issue",
+      },
+    ],
+    review_configs: [
+      {
+        action_name: "github_create_issue",
+        allowed_decisions: ["approve", "reject"],
+      },
+    ],
+  },
+};
+
+describe("approval", () => {
+  const pause = () => {
+    setStream({ interrupt: approval });
+    renderScreen();
+    fireEvent.click(screen.getByRole("button", { name: /run/i }));
+    // the stream ends when the Run pauses for the approval
+    act(() => streamOptions.current.onFinish?.());
+  };
+
+  it("shows the pending approval in the result panel, not done", () => {
+    pause();
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Waiting for your approval",
+    );
+    expect(screen.getByText("github_create_issue")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Approve" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Submit rejection" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /cancel/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("approving resumes the Run on its own thread and shows it running again", () => {
+    pause();
+    const resume = vi.fn(() =>
+      setStream({ interrupt: undefined, isLoading: true }),
+    );
+    setStream({ submit: resume });
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+
+    expect(resume).toHaveBeenCalledWith(
+      {},
+      { command: { resume: { decisions: [{ type: "approve" }] } } },
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Running");
+    expect(
+      screen.queryByRole("button", { name: "Approve" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("rejecting resumes the Run with a reject decision", () => {
+    pause();
+    fireEvent.change(screen.getByPlaceholderText(/feedback/i), {
+      target: { value: "not now" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit rejection" }));
+
+    expect(stream.current.submit).toHaveBeenLastCalledWith(
+      {},
+      {
+        command: {
+          resume: { decisions: [{ type: "reject", message: "not now" }] },
+        },
+      },
+    );
+  });
+
+  it("tells a Skill UI the Run is still running, not done", async () => {
+    setStream({ interrupt: approval });
+    render(
+      <SkillRunScreen
+        apiUrl={apiUrl}
+        assistantId="agent"
+        skill="reconcile"
+        hasUi
+      />,
+    );
+    const { contentWindow } = screen.getByTitle(
+      "reconcile screen",
+    ) as HTMLIFrameElement;
+    const post = vi.spyOn(contentWindow!, "postMessage");
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: { type: "submit" },
+          source: contentWindow,
+        }),
+      );
+    });
+    await screen.findByTestId("skill-run-result");
+    act(() => streamOptions.current.onFinish?.());
+
+    expect(post.mock.calls.at(-1)?.[0]).toEqual({
+      type: "status",
+      state: "running",
+    });
   });
 });
 

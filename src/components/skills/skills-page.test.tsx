@@ -128,3 +128,108 @@ describe("SkillsPage install", () => {
     );
   });
 });
+
+describe("SkillsPage replace", () => {
+  const replaceZip = () =>
+    fireEvent.change(screen.getByLabelText("Replace reconcile with a zip"), {
+      target: { files: [zip()] },
+    });
+
+  it("PUTs the zip to the Skill and shows the new description", async () => {
+    let description = reconcile.description;
+    const fetchFn = mockFetch({
+      "GET /skills": () => json([{ ...reconcile, description }]),
+      "PUT /skills/reconcile": () => {
+        description = "Reconcile N sheets";
+        return json({ ...reconcile, description });
+      },
+    });
+    render(<SkillsPage apiUrl={apiUrl} />);
+    await screen.findByText("Reconcile two spreadsheets");
+
+    replaceZip();
+
+    expect(await screen.findByText("Reconcile N sheets")).toBeInTheDocument();
+    const put = fetchFn.mock.calls.find(([, init]) => init?.method === "PUT");
+    expect((put![1]!.body as FormData).get("file")).toBeInstanceOf(File);
+  });
+
+  it("shows the refusal and keeps the old Skill listed", async () => {
+    mockFetch({
+      "GET /skills": () => json([reconcile]),
+      "PUT /skills/reconcile": () =>
+        json({ error: "SKILL.md is missing from the zip" }, 422),
+    });
+    render(<SkillsPage apiUrl={apiUrl} />);
+    await screen.findByText("reconcile");
+
+    replaceZip();
+
+    expect(
+      await screen.findByText("SKILL.md is missing from the zip"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Reconcile two spreadsheets")).toBeInTheDocument();
+  });
+});
+
+describe("SkillsPage delete", () => {
+  const isDelete = ([, init]: [unknown, RequestInit?]) =>
+    init?.method === "DELETE";
+
+  it("asks for confirmation, and only deletes once confirmed", async () => {
+    let deleted = false;
+    const fetchFn = mockFetch({
+      "GET /skills": () => json(deleted ? [] : [reconcile]),
+      "DELETE /skills/reconcile": () => {
+        deleted = true;
+        return new Response(null, { status: 204 });
+      },
+    });
+    render(<SkillsPage apiUrl={apiUrl} />);
+    await screen.findByText("reconcile");
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete reconcile" }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("reconcile");
+    expect(fetchFn.mock.calls.some(isDelete)).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(await screen.findByText(/no skills installed/i)).toBeInTheDocument();
+    expect(fetchFn.mock.calls.filter(isDelete)).toHaveLength(1);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps the Skill when the confirmation is cancelled", async () => {
+    const fetchFn = mockFetch({ "GET /skills": () => json([reconcile]) });
+    render(<SkillsPage apiUrl={apiUrl} />);
+    await screen.findByText("reconcile");
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete reconcile" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
+    expect(fetchFn.mock.calls.some(isDelete)).toBe(false);
+    expect(screen.getByText("reconcile")).toBeInTheDocument();
+  });
+
+  it("shows why a delete failed", async () => {
+    mockFetch({
+      "GET /skills": () => json([reconcile]),
+      "DELETE /skills/reconcile": () =>
+        json({ error: "No Skill named 'reconcile'" }, 404),
+    });
+    render(<SkillsPage apiUrl={apiUrl} />);
+    await screen.findByText("reconcile");
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete reconcile" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+
+    expect(
+      await screen.findByText("No Skill named 'reconcile'"),
+    ).toBeInTheDocument();
+  });
+});

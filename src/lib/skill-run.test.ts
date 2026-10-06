@@ -11,8 +11,8 @@ describe("skillRunInput", () => {
     const files = [{ key: "k1.pdf", filename: "q1.pdf" }];
     const { input, options } = skillRunInput({
       skill: "reconcile",
-      text: " Compare Q1 ",
-      files,
+      fields: { text: " Compare Q1 " },
+      files: { files },
       enableWebSearch: true,
     });
 
@@ -31,11 +31,11 @@ describe("skillRunInput", () => {
     expect(options.metadata).toEqual(SKILL_RUN_METADATA);
   });
 
-  it("omits the files field when nothing was uploaded", () => {
+  it("omits a file name with nothing uploaded", () => {
     const { options } = skillRunInput({
       skill: "s",
-      text: "",
-      files: [],
+      fields: {},
+      files: { first: [], second: [] },
       enableWebSearch: false,
     });
     expect(options.config.configurable.skill_run.files).toEqual({});
@@ -53,16 +53,29 @@ describe("isChatThread", () => {
 
 describe("skillRunStatus", () => {
   it("is running until the stream finishes, even before isLoading turns true", () => {
-    expect(skillRunStatus({ isLoading: true, started: true, finished: false })).toBe("running");
-    expect(skillRunStatus({ isLoading: false, started: true, finished: false })).toBe("running");
+    expect(
+      skillRunStatus({ isLoading: true, started: true, finished: false }),
+    ).toBe("running");
+    expect(
+      skillRunStatus({ isLoading: false, started: true, finished: false }),
+    ).toBe("running");
   });
   it("is failed on an error and done once finished", () => {
     expect(
-      skillRunStatus({ isLoading: false, error: new Error("x"), started: true, finished: false }),
+      skillRunStatus({
+        isLoading: false,
+        error: new Error("x"),
+        started: true,
+        finished: false,
+      }),
     ).toBe("failed");
-    expect(skillRunStatus({ isLoading: false, started: true, finished: true })).toBe("done");
+    expect(
+      skillRunStatus({ isLoading: false, started: true, finished: true }),
+    ).toBe("done");
   });
   it("is idle before the Run starts", () => {
-    expect(skillRunStatus({ isLoading: false, started: false, finished: false })).toBe("idle");
+    expect(
+      skillRunStatus({ isLoading: false, started: false, finished: false }),
+    ).toBe("idle");
   });
 });

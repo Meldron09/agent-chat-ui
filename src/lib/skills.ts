@@ -15,6 +15,12 @@ export async function listSkills(apiUrl: string): Promise<Skill[]> {
   return res.json();
 }
 
+export async function getSkill(apiUrl: string, name: string): Promise<Skill> {
+  const res = await fetch(`${apiUrl}/skills/${encodeURIComponent(name)}`);
+  if (!res.ok) throw await failure(res);
+  return res.json();
+}
+
 export async function installSkill(apiUrl: string, zip: File): Promise<Skill> {
   const body = new FormData();
   body.append("file", zip);

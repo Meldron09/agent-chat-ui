@@ -8,23 +8,24 @@ import { webSearchConfigForRun } from "./web-search";
  * so it cannot exclude them itself (deepagent-aegra ADR-0011). */
 export const SKILL_RUN_METADATA = { skill_run: true };
 
-export const isChatThread = (thread: { metadata?: Record<string, unknown> | null }) =>
-  !thread.metadata?.skill_run;
+export const isChatThread = (thread: {
+  metadata?: Record<string, unknown> | null;
+}) => !thread.metadata?.skill_run;
 
 /** What `stream.submit` needs to start a Skill Run on the Orchestrator: an
  * ordinary human message plus `configurable.skill_run`, which deepagent-aegra's
  * `SkillRunMiddleware` (agent/skill_run.py) turns into the Skill's instructions,
- * the `fields` JSON block, and Attachments. The fallback screen has one free-text
- * field, `text`, and one file field, `files`. */
+ * the `fields` JSON block, and Attachments keyed by field name. The fallback screen
+ * has one free-text field, `text`, and one file field, `files`; a Skill UI names its own. */
 export function skillRunInput({
   skill,
-  text,
+  fields,
   files,
   enableWebSearch,
 }: {
   skill: string;
-  text: string;
-  files: AttachmentRef[];
+  fields: Record<string, unknown>;
+  files: Record<string, AttachmentRef[]>;
   enableWebSearch: boolean;
 }) {
   const message: Message = {
@@ -42,8 +43,10 @@ export function skillRunInput({
           ...configurable,
           skill_run: {
             name: skill,
-            fields: { text },
-            files: files.length > 0 ? { files } : {},
+            fields,
+            files: Object.fromEntries(
+              Object.entries(files).filter(([, list]) => list.length > 0),
+            ),
           },
         },
       },

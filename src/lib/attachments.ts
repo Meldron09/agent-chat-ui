@@ -45,3 +45,20 @@ export function attachmentsForRun(
 ): AttachmentRef[] | undefined {
   return attachments.length > 0 ? attachments : undefined;
 }
+
+/** `POST {apiUrl}/files` -- deepagent-aegra's upload/download HTTP app
+ * (deepagent-aegra/docs/adr/0004). Returns the `{key, filename}` Attachment
+ * pointer; never the file's bytes. */
+export async function uploadFile(
+  apiUrl: string,
+  file: File,
+): Promise<AttachmentRef> {
+  const body = new FormData();
+  body.append("file", file);
+  const res = await fetch(`${apiUrl}/files`, { method: "POST", body });
+  if (!res.ok) {
+    throw new Error(`Upload failed for "${file.name}" (${res.status})`);
+  }
+  const { key } = (await res.json()) as { key: string };
+  return { key, filename: file.name };
+}

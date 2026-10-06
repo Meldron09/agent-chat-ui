@@ -4,25 +4,12 @@ import {
   AttachmentRef,
   isSupportedAttachment,
   SUPPORTED_ATTACHMENT_EXTENSIONS,
+  uploadFile,
 } from "@/lib/attachments";
 
 interface UseFileUploadOptions {
   apiUrl: string;
   initialAttachments?: AttachmentRef[];
-}
-
-/** `POST {apiUrl}/files` -- deepagent-aegra's upload/download HTTP app
- * (deepagent-aegra/docs/adr/0004). Returns the `{key, filename}` Attachment
- * pointer; never the file's bytes. */
-async function uploadFile(apiUrl: string, file: File): Promise<AttachmentRef> {
-  const body = new FormData();
-  body.append("file", file);
-  const res = await fetch(`${apiUrl}/files`, { method: "POST", body });
-  if (!res.ok) {
-    throw new Error(`Upload failed for "${file.name}" (${res.status})`);
-  }
-  const { key } = (await res.json()) as { key: string };
-  return { key, filename: file.name };
 }
 
 export function useFileUpload({

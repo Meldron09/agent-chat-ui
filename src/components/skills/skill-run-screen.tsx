@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Paperclip, Play } from "lucide-react";
 import { useStream } from "@langchain/langgraph-sdk/react";
 import type { Message } from "@langchain/langgraph-sdk";
@@ -11,8 +11,14 @@ import { OutputLinks } from "../thread/output-links";
 import { WebSearchToggle } from "../thread/web-search-toggle";
 import { getContentString } from "../thread/utils";
 import { useFileUpload } from "@/hooks/use-file-upload";
-import { SUPPORTED_ATTACHMENT_EXTENSIONS } from "@/lib/attachments";
+import { toast } from "sonner";
+import { SkillUiFrame } from "./skill-ui-frame";
+import {
+  SUPPORTED_ATTACHMENT_EXTENSIONS,
+  type AttachmentRef,
+} from "@/lib/attachments";
 import type { OutputRef } from "@/lib/outputs";
+import { uploadSkillFiles, type SkillUiSubmit } from "@/lib/skill-ui";
 import {
   skillRunInput,
   skillRunStatus,
@@ -26,24 +32,29 @@ const STATUS_LABEL: Record<SkillRunStatus, string> = {
   failed: "Failed",
 };
 
-/** The built-in screen for a Skill that has no `ui/`: a free-text box, a file
- * picker and the web search switch. Submitting starts a Skill Run -- a hidden,
- * one-shot thread on the Orchestrator (deepagent-aegra ADR-0011) -- and the
- * result panel below shows its status, final message and Outputs. */
+/** The screen for one Skill: its own `ui/` in a sandboxed frame, or, for a Skill
+ * with none, a built-in free-text box and file picker. Either way the web search
+ * switch is the host's, and submitting starts a Skill Run -- a hidden, one-shot
+ * thread on the Orchestrator (deepagent-aegra ADR-0011) -- whose status, final
+ * message and Outputs the result panel below shows. */
 export function SkillRunScreen({
   apiUrl,
   assistantId,
   skill,
+  hasUi = false,
 }: {
   apiUrl: string;
   assistantId: string;
   skill: string;
+  hasUi?: boolean;
 }) {
   const [text, setText] = useState("");
   const [enableWebSearch, setEnableWebSearch] = useState(false);
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string>();
+  const submitting = useRef(false);
   const picker = useRef<HTMLInputElement>(null);
   const { attachments, handleFileUpload, removeAttachment, uploading } =
     useFileUpload({ apiUrl });
@@ -68,11 +79,14 @@ export function SkillRunScreen({
     .reverse()
     .find((m) => m.type === "ai" && getContentString(m.content).trim());
 
-  const start = () => {
+  const start = (
+    fields: Record<string, unknown>,
+    files: Record<string, AttachmentRef[]>,
+  ) => {
     const { input, options } = skillRunInput({
       skill,
-      text,
-      files: attachments,
+      fields,
+      files,
       enableWebSearch,
     });
     setStarted(true);
@@ -84,10 +98,52 @@ export function SkillRunScreen({
     });
   };
 
+  // The UI's `submit`: the host uploads and validates the files, then starts the
+  // Run exactly as the fallback screen does.
+  const submitFromUi = useCallback(
+    async ({ fields, files }: SkillUiSubmit) => {
+      if (submitting.current) return;
+      submitting.current = true;
+      setUploadError(undefined);
+      try {
+        start(fields, await uploadSkillFiles(apiUrl, files));
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        setUploadError(message);
+        toast.error(message);
+        submitting.current = false;
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `start` reads the latest web search choice
+    [apiUrl, skill, enableWebSearch],
+  );
+
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 p-6">
       <h1 className="text-xl font-semibold">{skill}</h1>
-      {!started && (
+      {hasUi && (
+        <>
+          <SkillUiFrame
+            apiUrl={apiUrl}
+            skill={skill}
+            onSubmit={submitFromUi}
+            status={
+              uploadError
+                ? { state: "failed", message: uploadError }
+                : status === "idle"
+                  ? undefined
+                  : { state: status }
+            }
+          />
+          {!started && (
+            <WebSearchToggle
+              checked={enableWebSearch}
+              onCheckedChange={setEnableWebSearch}
+            />
+          )}
+        </>
+      )}
+      {!hasUi && !started && (
         <div className="flex flex-col gap-3">
           <Textarea
             aria-label="Input"
@@ -128,7 +184,7 @@ export function SkillRunScreen({
             <Button
               variant="brand"
               disabled={uploading}
-              onClick={start}
+              onClick={() => start({ text }, { files: attachments })}
             >
               <Play className="size-4" />
               Run

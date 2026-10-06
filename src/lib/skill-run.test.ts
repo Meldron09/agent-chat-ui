@@ -73,6 +73,26 @@ describe("skillRunStatus", () => {
       skillRunStatus({ isLoading: false, started: true, finished: true }),
     ).toBe("done");
   });
+  it("is cancelled once the person cancels, whatever the stream does after", () => {
+    expect(
+      skillRunStatus({
+        isLoading: true,
+        started: true,
+        finished: false,
+        queued: true,
+        cancelled: true,
+      }),
+    ).toBe("cancelled");
+    expect(
+      skillRunStatus({
+        isLoading: false,
+        error: new Error("aborted"),
+        started: true,
+        finished: true,
+        cancelled: true,
+      }),
+    ).toBe("cancelled");
+  });
   it("is queued from the server's queued event until it reports running", () => {
     expect(
       skillRunStatus({

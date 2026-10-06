@@ -18,16 +18,25 @@ const stream = vi.hoisted(() => ({
     isLoading: false,
     error: undefined as unknown,
     submit: vi.fn(),
+    stop: vi.fn(),
   },
 }));
 const useStream = vi.hoisted(() => vi.fn());
 const streamOptions = vi.hoisted(() => ({
   current: {} as {
     onFinish?: () => void;
+    onCreated?: (run: { thread_id: string; run_id: string }) => void;
     onCustomEvent?: (event: unknown) => void;
   },
 }));
 vi.mock("@langchain/langgraph-sdk/react", () => ({ useStream }));
+const cancelRun = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock("@langchain/langgraph-sdk", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  Client: class {
+    runs = { cancel: cancelRun };
+  },
+}));
 
 const apiUrl = "http://localhost:2024";
 
@@ -51,7 +60,9 @@ beforeEach(() => {
     isLoading: false,
     error: undefined,
     submit: vi.fn(),
+    stop: vi.fn(),
   };
+  cancelRun.mockClear();
   useStream.mockImplementation((options) => {
     streamOptions.current = options;
     return stream.current;
@@ -184,6 +195,68 @@ describe("result panel", () => {
     );
   });
 
+  describe("cancel", () => {
+    const created = () =>
+      act(() =>
+        streamOptions.current.onCreated?.({ thread_id: "t1", run_id: "r1" }),
+      );
+
+    it("cancels a running Run on the server, stops the stream and shows cancelled", async () => {
+      start();
+      created();
+      fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent("Cancelled"),
+      );
+      expect(cancelRun).toHaveBeenCalledWith("t1", "r1");
+      expect(stream.current.stop).toHaveBeenCalled();
+      expect(
+        screen.queryByRole("button", { name: /cancel/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("cancels a queued Run the same way", async () => {
+      start();
+      created();
+      act(() =>
+        streamOptions.current.onCustomEvent?.({ skill_run_status: "queued" }),
+      );
+      expect(screen.getByRole("status")).toHaveTextContent("Queued");
+      fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent("Cancelled"),
+      );
+      expect(cancelRun).toHaveBeenCalledWith("t1", "r1");
+    });
+
+    it("offers no cancel before the server has created the Run, nor once it is done", () => {
+      start();
+      expect(
+        screen.queryByRole("button", { name: /cancel/i }),
+      ).not.toBeInTheDocument();
+
+      created();
+      finish();
+      expect(
+        screen.queryByRole("button", { name: /cancel/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("keeps the Run showing as running, with a message, when the server refuses the cancel", async () => {
+      cancelRun.mockRejectedValueOnce(new Error("server down"));
+      start();
+      created();
+      fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+      await waitFor(() => expect(toastError).toHaveBeenCalled());
+      expect(toastError.mock.calls[0][0]).toMatch(/server down/);
+      expect(screen.getByRole("status")).toHaveTextContent("Running");
+      expect(stream.current.stop).not.toHaveBeenCalled();
+    });
+  });
+
   it("shows failed with the error", () => {
     setStream({ error: new Error("model unreachable") });
     start();
@@ -291,6 +364,21 @@ describe("Skill UI", () => {
       streamOptions.current.onCustomEvent?.({ skill_run_status: "running" }),
     );
     expect(sent().at(-1)).toEqual({ type: "status", state: "running" });
+  });
+
+  it("tells the UI its Run was cancelled", async () => {
+    renderUi();
+    const sent = statuses();
+    submitFromUi();
+    await screen.findByTestId("skill-run-result");
+    act(() =>
+      streamOptions.current.onCreated?.({ thread_id: "t1", run_id: "r1" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    await waitFor(() =>
+      expect(sent().at(-1)).toEqual({ type: "status", state: "cancelled" }),
+    );
   });
 
   it("sends the UI a failed status when the Run fails", async () => {

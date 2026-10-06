@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { Paperclip, Play } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { Paperclip, Play, X } from "lucide-react";
 import { useStream } from "@langchain/langgraph-sdk/react";
-import type { Message } from "@langchain/langgraph-sdk";
+import { Client, type Message } from "@langchain/langgraph-sdk";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { AttachmentsPreview } from "../thread/AttachmentsPreview";
@@ -32,6 +32,7 @@ const STATUS_LABEL: Record<SkillRunStatus, string> = {
   running: "Running…",
   done: "Done",
   failed: "Failed",
+  cancelled: "Cancelled",
 };
 
 /** The screen for one Skill: its own `ui/` in a sandboxed frame, or, for a Skill
@@ -56,18 +57,26 @@ export function SkillRunScreen({
   const [finished, setFinished] = useState(false);
   const [queued, setQueued] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
+  const [run, setRun] = useState<{ threadId: string; runId: string }>();
+  const [cancelled, setCancelled] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [uploadError, setUploadError] = useState<string>();
   const submitting = useRef(false);
   const picker = useRef<HTMLInputElement>(null);
   const { attachments, handleFileUpload, removeAttachment, uploading } =
     useFileUpload({ apiUrl });
 
+  const client = useMemo(() => new Client({ apiUrl }), [apiUrl]);
+
   // Bound to the Run's own thread, not the URL's `threadId` query param the chat uses.
   const stream = useStream<{ messages: Message[]; outputs?: OutputRef[] }>({
     apiUrl,
+    client,
     assistantId,
     threadId,
     onThreadId: setThreadId,
+    onCreated: ({ thread_id, run_id }) =>
+      setRun({ threadId: thread_id, runId: run_id }),
     onFinish: () => setFinished(true),
     onCustomEvent: (event) => setQueued((q) => queuedFromEvent(event) ?? q),
     fetchStateHistory: true,
@@ -79,10 +88,29 @@ export function SkillRunScreen({
     started,
     finished,
     queued,
+    cancelled,
   });
   const finalMessage = [...stream.messages]
     .reverse()
     .find((m) => m.type === "ai" && getContentString(m.content).trim());
+
+  // Stopping the stream only disconnects (the Run is resumable, so the server keeps
+  // going); the server-side cancel is what ends a running Run or drops a queued one.
+  const cancel = async () => {
+    if (!run) return;
+    setCancelling(true);
+    try {
+      await client.runs.cancel(run.threadId, run.runId);
+    } catch (e) {
+      toast.error(
+        `Could not cancel: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      setCancelling(false);
+      return;
+    }
+    setCancelled(true);
+    stream.stop();
+  };
 
   const start = (
     fields: Record<string, unknown>,
@@ -208,6 +236,18 @@ export function SkillRunScreen({
           >
             {STATUS_LABEL[status]}
           </div>
+          {run && (status === "queued" || status === "running") && (
+            <Button
+              type="button"
+              variant="outline"
+              className="self-start"
+              disabled={cancelling}
+              onClick={cancel}
+            >
+              <X className="size-4" />
+              Cancel
+            </Button>
+          )}
           {status === "failed" && (
             <div
               role="alert"

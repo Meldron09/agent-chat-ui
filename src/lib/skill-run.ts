@@ -54,7 +54,13 @@ export function skillRunInput({
   };
 }
 
-export type SkillRunStatus = "idle" | "queued" | "running" | "done" | "failed";
+export type SkillRunStatus =
+  | "idle"
+  | "queued"
+  | "running"
+  | "done"
+  | "failed"
+  | "cancelled";
 
 /** The status the server reports for a Run through a custom stream event
  * (`{skill_run_status: "queued" | "running"}`, deepagent-aegra agent/skill_run.py):
@@ -73,13 +79,16 @@ export function skillRunStatus({
   started,
   finished,
   queued = false,
+  cancelled = false,
 }: {
   isLoading: boolean;
   error?: unknown;
   started: boolean;
   finished: boolean;
   queued?: boolean;
+  cancelled?: boolean;
 }): SkillRunStatus {
+  if (cancelled) return "cancelled"; // aborting the stream may surface as an error
   if (error) return "failed";
   if (!started) return "idle";
   if (queued && !finished) return "queued";

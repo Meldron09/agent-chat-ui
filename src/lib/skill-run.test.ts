@@ -73,6 +73,35 @@ describe("skillRunStatus", () => {
       skillRunStatus({ isLoading: false, started: true, finished: true }),
     ).toBe("done");
   });
+  it("is queued from the server's queued event until it reports running", () => {
+    expect(
+      skillRunStatus({
+        isLoading: true,
+        started: true,
+        finished: false,
+        queued: true,
+      }),
+    ).toBe("queued");
+    expect(
+      skillRunStatus({
+        isLoading: true,
+        started: true,
+        finished: false,
+        queued: false,
+      }),
+    ).toBe("running");
+  });
+  it("is failed rather than queued when a queued Run errors", () => {
+    expect(
+      skillRunStatus({
+        isLoading: false,
+        error: new Error("x"),
+        started: true,
+        finished: false,
+        queued: true,
+      }),
+    ).toBe("failed");
+  });
   it("is idle before the Run starts", () => {
     expect(
       skillRunStatus({ isLoading: false, started: false, finished: false }),

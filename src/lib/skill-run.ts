@@ -54,7 +54,16 @@ export function skillRunInput({
   };
 }
 
-export type SkillRunStatus = "idle" | "running" | "done" | "failed";
+export type SkillRunStatus = "idle" | "queued" | "running" | "done" | "failed";
+
+/** The status the server reports for a Run through a custom stream event
+ * (`{skill_run_status: "queued" | "running"}`, deepagent-aegra agent/skill_run.py):
+ * only one Skill Run is active at a time, so a Run submitted meanwhile waits. */
+export const queuedFromEvent = (event: unknown): boolean | undefined => {
+  const status = (event as { skill_run_status?: unknown } | null)
+    ?.skill_run_status;
+  return status === "queued" ? true : status === "running" ? false : undefined;
+};
 
 /** `finished` comes from the stream's `onFinish`, not from `!isLoading`: right
  * after submit, `isLoading` is still false for a moment, which would read as done. */
@@ -63,13 +72,16 @@ export function skillRunStatus({
   error,
   started,
   finished,
+  queued = false,
 }: {
   isLoading: boolean;
   error?: unknown;
   started: boolean;
   finished: boolean;
+  queued?: boolean;
 }): SkillRunStatus {
   if (error) return "failed";
   if (!started) return "idle";
+  if (queued && !finished) return "queued";
   return isLoading || !finished ? "running" : "done";
 }

@@ -22,7 +22,10 @@ const stream = vi.hoisted(() => ({
 }));
 const useStream = vi.hoisted(() => vi.fn());
 const streamOptions = vi.hoisted(() => ({
-  current: {} as { onFinish?: () => void },
+  current: {} as {
+    onFinish?: () => void;
+    onCustomEvent?: (event: unknown) => void;
+  },
 }));
 vi.mock("@langchain/langgraph-sdk/react", () => ({ useStream }));
 
@@ -140,6 +143,28 @@ describe("result panel", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Running");
   });
 
+  it("shows queued while another Skill Run is active, then running once it starts", () => {
+    start();
+    act(() =>
+      streamOptions.current.onCustomEvent?.({ skill_run_status: "queued" }),
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Queued");
+
+    act(() =>
+      streamOptions.current.onCustomEvent?.({ skill_run_status: "running" }),
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Running");
+  });
+
+  it("ignores custom events that are not a Skill Run status", () => {
+    start();
+    act(() => streamOptions.current.onCustomEvent?.({ progress: 0.5 }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("Running");
+  });
+
   it("shows done with the final message and downloadable Outputs", () => {
     setStream({
       messages: [
@@ -250,6 +275,22 @@ describe("Skill UI", () => {
 
     act(() => streamOptions.current.onFinish?.());
     expect(sent().at(-1)).toEqual({ type: "status", state: "done" });
+  });
+
+  it("tells the UI its Run is queued, then running", async () => {
+    renderUi();
+    const sent = statuses();
+    submitFromUi();
+    await screen.findByTestId("skill-run-result");
+    act(() =>
+      streamOptions.current.onCustomEvent?.({ skill_run_status: "queued" }),
+    );
+    expect(sent().at(-1)).toEqual({ type: "status", state: "queued" });
+
+    act(() =>
+      streamOptions.current.onCustomEvent?.({ skill_run_status: "running" }),
+    );
+    expect(sent().at(-1)).toEqual({ type: "status", state: "running" });
   });
 
   it("sends the UI a failed status when the Run fails", async () => {

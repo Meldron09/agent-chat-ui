@@ -20,6 +20,7 @@ import {
 import type { OutputRef } from "@/lib/outputs";
 import { uploadSkillFiles, type SkillUiSubmit } from "@/lib/skill-ui";
 import {
+  queuedFromEvent,
   skillRunInput,
   skillRunStatus,
   type SkillRunStatus,
@@ -27,6 +28,7 @@ import {
 
 const STATUS_LABEL: Record<SkillRunStatus, string> = {
   idle: "",
+  queued: "Queued: waiting for another Skill Run to finish…",
   running: "Running…",
   done: "Done",
   failed: "Failed",
@@ -52,6 +54,7 @@ export function SkillRunScreen({
   const [enableWebSearch, setEnableWebSearch] = useState(false);
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [queued, setQueued] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string>();
   const submitting = useRef(false);
@@ -66,6 +69,7 @@ export function SkillRunScreen({
     threadId,
     onThreadId: setThreadId,
     onFinish: () => setFinished(true),
+    onCustomEvent: (event) => setQueued((q) => queuedFromEvent(event) ?? q),
     fetchStateHistory: true,
   });
 
@@ -74,6 +78,7 @@ export function SkillRunScreen({
     error: stream.error,
     started,
     finished,
+    queued,
   });
   const finalMessage = [...stream.messages]
     .reverse()

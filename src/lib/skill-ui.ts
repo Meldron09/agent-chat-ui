@@ -37,10 +37,9 @@ export function parseSubmit(data: unknown): SkillUiSubmit | null {
   return { fields, files };
 }
 
-/** What the UI is told. `queued` is part of the contract for when Runs queue;
- * the host sends what it knows. */
+/** What the UI is told: the Run's status (`queued` while another Skill Run is active). */
 export interface SkillUiStatus {
-  state: Exclude<SkillRunStatus, "idle"> | "queued";
+  state: Exclude<SkillRunStatus, "idle">;
   message?: string;
 }
 

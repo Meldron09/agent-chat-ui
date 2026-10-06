@@ -11,7 +11,7 @@ describe("skillRunInput", () => {
     const files = [{ key: "k1.pdf", filename: "q1.pdf" }];
     const { input, options } = skillRunInput({
       skill: "reconcile",
-      text: "Compare Q1",
+      text: " Compare Q1 ",
       files,
       enableWebSearch: true,
     });
@@ -24,7 +24,7 @@ describe("skillRunInput", () => {
       enable_web_search: true,
       skill_run: {
         name: "reconcile",
-        fields: { text: "Compare Q1" },
+        fields: { text: " Compare Q1 " }, // verbatim, not trimmed
         files: { files },
       },
     });
@@ -52,14 +52,17 @@ describe("isChatThread", () => {
 });
 
 describe("skillRunStatus", () => {
-  it("is running while loading, failed on an error, done once finished", () => {
-    expect(skillRunStatus({ isLoading: true })).toBe("running");
-    expect(skillRunStatus({ isLoading: false, error: new Error("x") })).toBe(
-      "failed",
-    );
-    expect(skillRunStatus({ isLoading: false, started: true })).toBe("done");
+  it("is running until the stream finishes, even before isLoading turns true", () => {
+    expect(skillRunStatus({ isLoading: true, started: true, finished: false })).toBe("running");
+    expect(skillRunStatus({ isLoading: false, started: true, finished: false })).toBe("running");
+  });
+  it("is failed on an error and done once finished", () => {
+    expect(
+      skillRunStatus({ isLoading: false, error: new Error("x"), started: true, finished: false }),
+    ).toBe("failed");
+    expect(skillRunStatus({ isLoading: false, started: true, finished: true })).toBe("done");
   });
   it("is idle before the Run starts", () => {
-    expect(skillRunStatus({ isLoading: false })).toBe("idle");
+    expect(skillRunStatus({ isLoading: false, started: false, finished: false })).toBe("idle");
   });
 });

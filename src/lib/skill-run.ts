@@ -53,16 +53,20 @@ export function skillRunInput({
 
 export type SkillRunStatus = "idle" | "running" | "done" | "failed";
 
+/** `finished` comes from the stream's `onFinish`, not from `!isLoading`: right
+ * after submit, `isLoading` is still false for a moment, which would read as done. */
 export function skillRunStatus({
   isLoading,
   error,
   started,
+  finished,
 }: {
   isLoading: boolean;
   error?: unknown;
-  started?: boolean;
+  started: boolean;
+  finished: boolean;
 }): SkillRunStatus {
   if (error) return "failed";
-  if (isLoading) return "running";
-  return started ? "done" : "idle";
+  if (!started) return "idle";
+  return isLoading || !finished ? "running" : "done";
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SkillRunScreen } from "./skill-run-screen";
 
 const toastError = vi.hoisted(() => vi.fn());
@@ -15,6 +15,7 @@ const stream = vi.hoisted(() => ({
   },
 }));
 const useStream = vi.hoisted(() => vi.fn());
+const streamOptions = vi.hoisted(() => ({ current: {} as { onFinish?: () => void } }));
 vi.mock("@langchain/langgraph-sdk/react", () => ({ useStream }));
 
 const apiUrl = "http://localhost:2024";
@@ -40,7 +41,10 @@ beforeEach(() => {
     error: undefined,
     submit: vi.fn(),
   };
-  useStream.mockImplementation(() => stream.current);
+  useStream.mockImplementation((options) => {
+    streamOptions.current = options;
+    return stream.current;
+  });
   toastError.mockClear();
   vi.stubGlobal(
     "fetch",
@@ -81,7 +85,7 @@ describe("launch", () => {
   it("submits a Skill Run on a hidden thread with the fields, files and web search choice", async () => {
     renderScreen();
     fireEvent.change(screen.getByLabelText("Input"), {
-      target: { value: "Compare Q1" },
+      target: { value: "Compare Q1 " },
     });
     pick(new File(["x"], "q1.pdf"));
     await screen.findByText("q1.pdf");
@@ -92,11 +96,13 @@ describe("launch", () => {
     const [input, options] = stream.current.submit.mock.calls[0];
     expect(input.messages).toHaveLength(1);
     expect(options.metadata).toEqual({ skill_run: true });
+    // Resumable, so leaving the page does not cancel the Run.
+    expect(options.streamResumable).toBe(true);
     expect(options.config.configurable).toEqual({
       enable_web_search: true,
       skill_run: {
         name: "reconcile",
-        fields: { text: "Compare Q1" },
+        fields: { text: "Compare Q1 " },
         files: { files: [{ key: "k1.pdf", filename: "q1.pdf" }] },
       },
     });
@@ -117,9 +123,10 @@ describe("result panel", () => {
     fireEvent.click(screen.getByRole("button", { name: /run/i }));
     return view;
   };
+  const finish = () => act(() => streamOptions.current.onFinish?.());
 
-  it("shows running while the Run is in progress", () => {
-    setStream({ isLoading: true });
+  it("shows running while the Run is in progress, not done before it streams", () => {
+    setStream({ isLoading: false });
     start();
 
     expect(screen.getByRole("status")).toHaveTextContent("Running");
@@ -134,6 +141,7 @@ describe("result panel", () => {
       values: { outputs: [{ key: "o1.xlsx", filename: "report.xlsx" }] },
     });
     start();
+    finish();
 
     expect(screen.getByRole("status")).toHaveTextContent("Done");
     expect(screen.getByText("Found 3 mismatches.")).toBeInTheDocument();

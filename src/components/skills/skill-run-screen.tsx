@@ -13,9 +13,13 @@ import { getContentString } from "../thread/utils";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { SUPPORTED_ATTACHMENT_EXTENSIONS } from "@/lib/attachments";
 import type { OutputRef } from "@/lib/outputs";
-import { skillRunInput, skillRunStatus } from "@/lib/skill-run";
+import {
+  skillRunInput,
+  skillRunStatus,
+  type SkillRunStatus,
+} from "@/lib/skill-run";
 
-const STATUS_LABEL = {
+const STATUS_LABEL: Record<SkillRunStatus, string> = {
   idle: "",
   running: "Running…",
   done: "Done",
@@ -38,6 +42,7 @@ export function SkillRunScreen({
   const [text, setText] = useState("");
   const [enableWebSearch, setEnableWebSearch] = useState(false);
   const [started, setStarted] = useState(false);
+  const [finished, setFinished] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   const { attachments, handleFileUpload, removeAttachment, uploading } =
@@ -49,6 +54,7 @@ export function SkillRunScreen({
     assistantId,
     threadId,
     onThreadId: setThreadId,
+    onFinish: () => setFinished(true),
     fetchStateHistory: true,
   });
 
@@ -56,6 +62,7 @@ export function SkillRunScreen({
     isLoading: stream.isLoading,
     error: stream.error,
     started,
+    finished,
   });
   const finalMessage = [...stream.messages]
     .reverse()
@@ -64,12 +71,17 @@ export function SkillRunScreen({
   const start = () => {
     const { input, options } = skillRunInput({
       skill,
-      text: text.trim(),
+      text,
       files: attachments,
       enableWebSearch,
     });
     setStarted(true);
-    stream.submit(input, { ...options, streamMode: ["values"] });
+    // Resumable, like the chat: leaving this page must not cancel the Run.
+    stream.submit(input, {
+      ...options,
+      streamMode: ["values"],
+      streamResumable: true,
+    });
   };
 
   return (

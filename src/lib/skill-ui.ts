@@ -49,6 +49,12 @@ export function statusMessage(state: SkillUiStatus["state"], message?: string) {
     : { type: "status" as const, state, message };
 }
 
+// A File posted from the sandboxed frame is still backed by the frame's process; uploading it
+// directly fails in the browser ("Failed to fetch"), so copy its bytes into a File of our own.
+async function ownCopy(f: File): Promise<File> {
+  return new File([await f.arrayBuffer()], f.name, { type: f.type });
+}
+
 /** Applies the same extension allowlist as the chat and the fallback screen,
  * then uploads every file through `POST /files`. Nothing is uploaded when any
  * file is refused. Returns the Attachments keyed by the UI's file names. */
@@ -68,7 +74,9 @@ export async function uploadSkillFiles(
       async ([name, list]) =>
         [
           name,
-          await Promise.all(list.map((f) => uploadFile(apiUrl, f))),
+          await Promise.all(
+            list.map(async (f) => uploadFile(apiUrl, await ownCopy(f))),
+          ),
         ] as const,
     ),
   );

@@ -91,6 +91,20 @@ describe("uploadSkillFiles", () => {
     });
   });
 
+  it("uploads a copy of each File, not the one posted from the sandboxed frame", async () => {
+    const fetchMock = stub();
+    const original = new File(["hello"], "a.pdf", { type: "application/pdf" });
+
+    await uploadSkillFiles("http://api", { first: [original] });
+
+    const sent = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1]
+      .body as FormData;
+    const copy = sent.get("file") as File;
+    expect(copy).not.toBe(original);
+    expect([copy.name, copy.type]).toEqual(["a.pdf", "application/pdf"]);
+    expect(await copy.text()).toBe("hello");
+  });
+
   it("refuses an unsupported type before uploading anything", async () => {
     const fetchMock = stub();
 

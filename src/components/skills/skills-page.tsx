@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Play, RefreshCw, Trash2, Upload } from "lucide-react";
+import { History, Play, RefreshCw, Trash2, Upload } from "lucide-react";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
+import { historyHref, listSkillRuns } from "@/lib/skill-runs";
 import {
   deleteSkill,
   installSkill,
@@ -28,12 +29,22 @@ export function SkillsPage({ apiUrl }: { apiUrl: string }) {
   const [installError, setInstallError] = useState<string>();
   const [installing, setInstalling] = useState(false);
   const [deleting, setDeleting] = useState<string>();
+  // Skills deleted since they ran: gone from the list above, but their Runs are still readable.
+  const [removed, setRemoved] = useState<string[]>([]);
   const input = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(
-    () => listSkills(apiUrl).then(setSkills, (e) => setLoadError(message(e))),
-    [apiUrl],
-  );
+  const load = useCallback(() => {
+    listSkillRuns(apiUrl).then(
+      (runs) =>
+        setRemoved([
+          ...new Set(
+            runs.filter((r) => r.skillState === "removed").map((r) => r.skill),
+          ),
+        ]),
+      () => setRemoved([]), // history is a convenience; the library still works without it
+    );
+    return listSkills(apiUrl).then(setSkills, (e) => setLoadError(message(e)));
+  }, [apiUrl]);
   useEffect(() => {
     load();
   }, [load]);
@@ -108,6 +119,27 @@ export function SkillsPage({ apiUrl }: { apiUrl: string }) {
           ))}
         </ul>
       )}
+      {removed.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-muted-foreground text-sm font-medium">
+            Removed Skills
+          </h2>
+          <ul className="divide-y rounded-md border">
+            {removed.map((name) => (
+              <li
+                key={name}
+                className="flex items-center justify-between gap-3 p-3"
+              >
+                <span className="font-medium">{name}</span>
+                <HistoryLink
+                  apiUrl={apiUrl}
+                  skill={name}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <Dialog
         open={deleting !== undefined}
         onOpenChange={(open) => !open && setDeleting(undefined)}
@@ -177,6 +209,10 @@ function SkillRow({
             Open
           </Link>
         </Button>
+        <HistoryLink
+          apiUrl={apiUrl}
+          skill={skill.name}
+        />
         <Button
           variant="outline"
           size="sm"
@@ -210,5 +246,20 @@ function SkillRow({
         </Button>
       </div>
     </li>
+  );
+}
+
+function HistoryLink({ apiUrl, skill }: { apiUrl: string; skill: string }) {
+  return (
+    <Button
+      asChild
+      variant="outline"
+      size="sm"
+    >
+      <Link href={historyHref(apiUrl, skill)}>
+        <History className="size-4" />
+        History
+      </Link>
+    </Button>
   );
 }

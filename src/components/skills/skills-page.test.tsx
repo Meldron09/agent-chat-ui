@@ -51,6 +51,17 @@ describe("SkillsPage list", () => {
     expect(screen.getByText("Summarise a doc")).toBeInTheDocument();
   });
 
+  it("links each Skill to its run screen on the same backend", async () => {
+    mockFetch({ "GET /skills": () => json([reconcile]) });
+    render(<SkillsPage apiUrl={apiUrl} />);
+
+    const open = await screen.findByRole("link", { name: /open/i });
+    expect(open).toHaveAttribute(
+      "href",
+      `/skills/run?apiUrl=${encodeURIComponent(apiUrl)}&skill=reconcile`,
+    );
+  });
+
   it("says so when no Skill is installed", async () => {
     mockFetch({ "GET /skills": () => json([]) });
     render(<SkillsPage apiUrl={apiUrl} />);

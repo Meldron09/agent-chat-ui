@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RefreshCw, Trash2, Upload } from "lucide-react";
+import Link from "next/link";
+import { Play, RefreshCw, Trash2, Upload } from "lucide-react";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -97,6 +98,7 @@ export function SkillsPage({ apiUrl }: { apiUrl: string }) {
             <SkillRow
               key={s.name}
               skill={s}
+              apiUrl={apiUrl}
               busy={installing}
               onReplace={(zip) =>
                 change(() => replaceSkill(apiUrl, s.name, zip))
@@ -144,11 +146,13 @@ export function SkillsPage({ apiUrl }: { apiUrl: string }) {
 
 function SkillRow({
   skill,
+  apiUrl,
   busy,
   onReplace,
   onDelete,
 }: {
   skill: Skill;
+  apiUrl: string;
   busy: boolean;
   onReplace: (zip: File) => void;
   onDelete: () => void;
@@ -161,6 +165,18 @@ function SkillRow({
         <div className="text-muted-foreground text-sm">{skill.description}</div>
       </div>
       <div className="flex shrink-0 gap-1">
+        <Button
+          asChild
+          variant="outline"
+          size="sm"
+        >
+          <Link
+            href={`/skills/run?apiUrl=${encodeURIComponent(apiUrl)}&skill=${encodeURIComponent(skill.name)}`}
+          >
+            <Play className="size-4" />
+            Open
+          </Link>
+        </Button>
         <Button
           variant="outline"
           size="sm"

@@ -12,6 +12,7 @@ import {
   Dispatch,
   SetStateAction,
 } from "react";
+import { isChatThread } from "@/lib/skill-run";
 import { createClient } from "./client";
 
 interface ThreadContextType {
@@ -67,7 +68,8 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
       limit: 100,
     });
 
-    return threads;
+    // Skill Run threads share the chat's graph_id; hide them client-side.
+    return threads.filter(isChatThread);
   }, [apiUrl, envApiUrl, assistantId, authScheme, envAssistantId]);
 
   const value = {

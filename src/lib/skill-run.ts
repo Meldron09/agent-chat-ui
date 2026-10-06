@@ -67,8 +67,9 @@ export const queuedFromEvent = (event: unknown): boolean | undefined => {
 };
 
 /** A Run waiting on an approval has ended its stream (so `finished`), but it is not done:
- * it is `interrupted` until the person decides, and then it resumes. `finished` comes from the stream's `onFinish`, not from `!isLoading`: right
- * after submit, `isLoading` is still false for a moment, which would read as done. */
+ * it is `interrupted` until the person decides, and then it resumes.
+ * `finished` comes from the stream's `onFinish`, not from `!isLoading`: right after
+ * submit, `isLoading` is still false for a moment, which would read as done. */
 export function skillRunStatus({
   isLoading,
   error,

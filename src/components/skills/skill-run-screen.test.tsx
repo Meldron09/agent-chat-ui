@@ -327,7 +327,11 @@ describe("approval", () => {
 
     expect(resume).toHaveBeenCalledWith(
       {},
-      { command: { resume: { decisions: [{ type: "approve" }] } } },
+      expect.objectContaining({
+        command: { resume: { decisions: [{ type: "approve" }] } },
+        streamResumable: true, // leaving the page must not cancel the Run
+        config: { configurable: { enable_web_search: false } },
+      }),
     );
     expect(screen.getByRole("status")).toHaveTextContent("Running");
     expect(
@@ -344,11 +348,11 @@ describe("approval", () => {
 
     expect(stream.current.submit).toHaveBeenLastCalledWith(
       {},
-      {
+      expect.objectContaining({
         command: {
           resume: { decisions: [{ type: "reject", message: "not now" }] },
         },
-      },
+      }),
     );
   });
 

@@ -19,6 +19,7 @@ import { ThreadView } from "../thread/agent-inbox";
 import StreamContext from "@/providers/Stream";
 import { isAgentInboxInterruptSchema } from "@/lib/agent-inbox-interrupt";
 import { getContentString } from "../thread/utils";
+import { webSearchConfigForRun } from "@/lib/web-search";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { toast } from "sonner";
 import { SkillUiFrame } from "./skill-ui-frame";
@@ -105,7 +106,15 @@ export function SkillRunScreen({
     apiUrl,
     submit: ((...args: Parameters<typeof stream.submit>) => {
       setFinished(false); // resumed: not done until it finishes again
-      return stream.submit(...args);
+      const [values, options] = args;
+      // The resume repeats what the first submit set that the thread does not keep: resumable
+      // (leaving the page must not cancel the Run) and the person's web search choice.
+      return stream.submit(values, {
+        streamMode: ["values"],
+        streamResumable: true,
+        config: webSearchConfigForRun(enableWebSearch),
+        ...options,
+      });
     }) as typeof stream.submit,
   } as unknown as ComponentProps<typeof StreamContext.Provider>["value"];
 
